@@ -1,4 +1,7 @@
 # DSC Keybus Interface
+
+Fork de [taligentx/dscKeybusInterface](https://github.com/taligentx/dscKeybusInterface) 3.0 para **Arduino-ESP32 3.x** (probado con 3.3.12). El timer del ESP32 usa la API nueva (`timerBegin(1000000)`, disparo de 250 µs) y las variables estáticas están en el `.cpp`, para que un sketch de varios archivos pueda incluir la librería.
+
 ![dscKeybusInterface](https://user-images.githubusercontent.com/12835671/105620980-5b356380-5dc8-11eb-93c2-e813751dda8a.png)
 This library directly interfaces Arduino, esp8266, esp32, and esp32-s2 microcontrollers to [DSC PowerSeries](http://www.dsc.com/dsc-security-products/g/PowerSeries/4) and [Classic series](https://www.dsc.com/manual/29000203) security systems for integration with home automation, remote control as a virtual keypad, notifications on alarm events, unlocking installer codes, and emulating DSC panels to use DSC keypads as general purpose input devices.
 

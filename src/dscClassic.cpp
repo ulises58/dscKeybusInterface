@@ -64,11 +64,10 @@ void dscClassicInterface::begin(Stream &_stream) {
 
   // esp32 timer1 calls dscDataInterrupt() from dscClockInterrupt()
   #elif defined(ESP32)
-  timer1 = timerBegin(1, 80, true);
+  timer1 = timerBegin(1000000);
+  timerAttachInterrupt(timer1, &dscDataInterrupt);
+  timerAlarm(timer1, 250, false, 0);
   timerStop(timer1);
-  timerAttachInterrupt(timer1, &dscDataInterrupt, true);
-  timerAlarmWrite(timer1, 250, true);
-  timerAlarmEnable(timer1);
   #endif
 
   // Generates an interrupt when the Keybus clock rises or falls - requires a hardware interrupt pin on Arduino/AVR
@@ -89,7 +88,7 @@ void dscClassicInterface::stop() {
 
   // Disables esp32 timer1
   #elif defined(ESP32)
-  timerAlarmDisable(timer1);
+  timerStop(timer1);
   timerEnd(timer1);
   #endif
 
@@ -1038,8 +1037,11 @@ void IRAM_ATTR dscClassicInterface::dscClockInterrupt() {
 
   // esp32 timer1 calls dscDataInterrupt() in 250us
   #elif defined(ESP32)
+  timerStop(timer1);
+  timerWrite(timer1, 0);
+  timerAlarm(timer1, 250, false, 0);
   timerStart(timer1);
-  portENTER_CRITICAL(&timer1Mux);
+  portENTER_CRITICAL_ISR(&timer1Mux);
   #endif
 
   static unsigned long previousClockHighTime;
@@ -1079,7 +1081,7 @@ void IRAM_ATTR dscClassicInterface::dscClockInterrupt() {
     }
   }
   #if defined(ESP32)
-  portEXIT_CRITICAL(&timer1Mux);
+  portEXIT_CRITICAL_ISR(&timer1Mux);
   #endif
 }
 
@@ -1092,7 +1094,7 @@ void ICACHE_RAM_ATTR dscClassicInterface::dscDataInterrupt() {
 #elif defined(ESP32)
 void IRAM_ATTR dscClassicInterface::dscDataInterrupt() {
   timerStop(timer1);
-  portENTER_CRITICAL(&timer1Mux);
+  portENTER_CRITICAL_ISR(&timer1Mux);
 #endif
 
   static bool skipData = false;
@@ -1218,6 +1220,6 @@ void IRAM_ATTR dscClassicInterface::dscDataInterrupt() {
 
   }
   #if defined(ESP32)
-  portEXIT_CRITICAL(&timer1Mux);
+  portEXIT_CRITICAL_ISR(&timer1Mux);
   #endif
 }

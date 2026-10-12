@@ -62,11 +62,10 @@ void dscKeypadInterface::begin(Stream &_stream) {
 
   // esp32 timer1 calls dscClockInterrupt()
   #elif defined(ESP32)
-  timer1 = timerBegin(1, 80, true);
+  timer1 = timerBegin(1000000);
+  timerAttachInterrupt(timer1, &dscClockInterrupt);
+  timerAlarm(timer1, 500, true, 0);
   timerStop(timer1);
-  timerAttachInterrupt(timer1, &dscClockInterrupt, true);
-  timerAlarmWrite(timer1, 500, true);
-  timerAlarmEnable(timer1);
   #endif
 
   intervalStart = millis();
@@ -227,6 +226,7 @@ bool dscKeypadInterface::loop() {
     #elif defined(ESP8266)
     timer1_enable(TIM_DIV16, TIM_EDGE, TIM_LOOP);
     #elif defined(ESP32)
+    timerWrite(timer1, 0);
     timerStart(timer1);
     #endif
   }

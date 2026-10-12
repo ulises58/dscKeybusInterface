@@ -19,6 +19,44 @@
 
 #include "dscKeybus.h"
 
+// Static member definitions (moved from header to avoid multiple definition in multi-file sketches)
+byte dscKeybusInterface::dscClockPin;
+byte dscKeybusInterface::dscReadPin;
+byte dscKeybusInterface::dscWritePin;
+char dscKeybusInterface::writeKey;
+byte dscKeybusInterface::writePartition;
+byte dscKeybusInterface::writeByte;
+byte dscKeybusInterface::writeBit;
+bool dscKeybusInterface::virtualKeypad;
+bool dscKeybusInterface::processModuleData;
+byte dscKeybusInterface::panelData[dscReadSize];
+byte dscKeybusInterface::panelByteCount;
+byte dscKeybusInterface::panelBitCount;
+volatile bool dscKeybusInterface::writeKeyPending;
+volatile byte dscKeybusInterface::moduleData[dscReadSize];
+volatile bool dscKeybusInterface::moduleDataCaptured;
+volatile bool dscKeybusInterface::moduleDataDetected;
+volatile byte dscKeybusInterface::moduleByteCount;
+volatile byte dscKeybusInterface::moduleBitCount;
+volatile bool dscKeybusInterface::writeAlarm;
+volatile bool dscKeybusInterface::starKeyCheck;
+volatile bool dscKeybusInterface::starKeyWait[dscPartitions];
+volatile bool dscKeybusInterface::bufferOverflow;
+volatile byte dscKeybusInterface::panelBufferLength;
+volatile byte dscKeybusInterface::panelBuffer[dscBufferSize][dscReadSize];
+volatile byte dscKeybusInterface::panelBufferBitCount[dscBufferSize];
+volatile byte dscKeybusInterface::panelBufferByteCount[dscBufferSize];
+volatile byte dscKeybusInterface::isrPanelData[dscReadSize];
+volatile byte dscKeybusInterface::isrPanelByteCount;
+volatile byte dscKeybusInterface::isrPanelBitCount;
+volatile byte dscKeybusInterface::isrPanelBitTotal;
+volatile byte dscKeybusInterface::isrModuleData[dscReadSize];
+volatile byte dscKeybusInterface::currentCmd;
+volatile byte dscKeybusInterface::statusCmd;
+volatile byte dscKeybusInterface::moduleCmd;
+volatile byte dscKeybusInterface::moduleSubCmd;
+volatile unsigned long dscKeybusInterface::clockHighTime;
+volatile unsigned long dscKeybusInterface::keybusTime;
 
 #if defined(ESP32)
 portMUX_TYPE dscKeybusInterface::timer1Mux = portMUX_INITIALIZER_UNLOCKED;
@@ -62,11 +100,10 @@ void dscKeybusInterface::begin(Stream &_stream) {
 
   // esp32 timer1 calls dscDataInterrupt() from dscClockInterrupt()
   #elif defined(ESP32)
-  timer1 = timerBegin(1, 80, true);
+  timer1 = timerBegin(1000000);
+  timerAttachInterrupt(timer1, &dscDataInterrupt);
+  timerAlarm(timer1, 250, false, 0);
   timerStop(timer1);
-  timerAttachInterrupt(timer1, &dscDataInterrupt, true);
-  timerAlarmWrite(timer1, 250, true);
-  timerAlarmEnable(timer1);
   #endif
 
   // Generates an interrupt when the Keybus clock rises or falls - requires a hardware interrupt pin on Arduino/AVR
@@ -87,7 +124,7 @@ void dscKeybusInterface::stop() {
 
   // Disables esp32 timer1
   #elif defined(ESP32)
-  timerAlarmDisable(timer1);
+  timerStop(timer1);
   timerEnd(timer1);
   #endif
 
@@ -474,8 +511,11 @@ void IRAM_ATTR dscKeybusInterface::dscClockInterrupt() {
 
   // esp32 timer1 calls dscDataInterrupt() in 250us
   #elif defined(ESP32)
+  timerStop(timer1);
+  timerWrite(timer1, 0);
+  timerAlarm(timer1, 250, false, 0);
   timerStart(timer1);
-  portENTER_CRITICAL(&timer1Mux);
+  portENTER_CRITICAL_ISR(&timer1Mux);
   #endif
 
   static unsigned long previousClockHighTime;
@@ -609,7 +649,7 @@ void IRAM_ATTR dscKeybusInterface::dscClockInterrupt() {
     }
   }
   #if defined(ESP32)
-  portEXIT_CRITICAL(&timer1Mux);
+  portEXIT_CRITICAL_ISR(&timer1Mux);
   #endif
 }
 
@@ -622,7 +662,7 @@ void ICACHE_RAM_ATTR dscKeybusInterface::dscDataInterrupt() {
 #elif defined(ESP32)
 void IRAM_ATTR dscKeybusInterface::dscDataInterrupt() {
   timerStop(timer1);
-  portENTER_CRITICAL(&timer1Mux);
+  portENTER_CRITICAL_ISR(&timer1Mux);
 #endif
 
   // Panel sends data while the clock is high
@@ -693,6 +733,6 @@ void IRAM_ATTR dscKeybusInterface::dscDataInterrupt() {
     }
   }
   #if defined(ESP32)
-  portEXIT_CRITICAL(&timer1Mux);
+  portEXIT_CRITICAL_ISR(&timer1Mux);
   #endif
 }
